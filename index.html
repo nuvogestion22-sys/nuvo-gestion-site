@@ -479,6 +479,39 @@ img,svg,canvas{max-width:100%}
   </div>
 </section>
 
+<!-- SONDAGE HEURES FACTURES -->
+<section id="sondage" style="scroll-margin-top:80px;padding:0 112px 120px;position:relative;z-index:1;overflow:hidden;transition:max-height 0.7s ease,padding-bottom 0.7s ease">
+  <div id="sondage-card" style="max-width:760px;display:flex;flex-direction:column;gap:22px;padding:36px 40px;background:#1C1C1C;border:1px solid #2A2A2A;border-radius:14px;transform-origin:center center;will-change:transform,opacity">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:13px;color:#6AADFF;font-weight:600;text-transform:uppercase;letter-spacing:0.08em">Sondage rapide</div>
+      <h3 style="margin:0;font-family:'Unbounded',sans-serif;font-size:22px;font-weight:600;line-height:1.3">Combien de temps passez-vous sur vos factures ?</h3>
+      <p style="margin:0;font-size:16px;line-height:1.6;color:#BBBBBB">Ce n&rsquo;est ni un devis ni une estimation : je collecte ces r&eacute;ponses pour calculer une moyenne et mieux comprendre les besoins des entreprises du coin.</p>
+    </div>
+    <form id="sondage-form" novalidate style="display:flex;flex-direction:column;gap:16px">
+      <input type="text" name="_honey" tabindex="-1" autocomplete="off" style="display:none" aria-hidden="true">
+      <div class="sondage-row">
+        <button type="button" class="popup-option sondage-periode" data-periode="semaine" aria-pressed="false">Par semaine</button>
+        <button type="button" class="popup-option sondage-periode" data-periode="mois" aria-pressed="false">Par mois</button>
+        <input id="sondage-heures" type="text" inputmode="decimal" autocomplete="off" placeholder="Nombre d&rsquo;heures" aria-label="Nombre d&rsquo;heures pass&eacute;es sur les factures" class="sondage-input">
+      </div>
+      <button type="submit" class="btn-rocket sondage-submit" style="align-self:flex-start">🚀 Envoyer ma r&eacute;ponse</button>
+      <p id="sondage-status" role="status" aria-live="polite" style="margin:0;font-size:15px;line-height:1.5;font-weight:500;min-height:1.5em"></p>
+    </form>
+  </div>
+</section>
+<style>
+.sondage-row{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.sondage-row .sondage-periode{flex:0 0 auto;min-width:150px;justify-content:center}
+.sondage-input{flex:1 1 180px;min-width:0;min-height:50px;padding:0 16px;background:#111111;border:1px solid #2A2A2A;border-radius:8px;color:#E8E8E8;font-size:16px;font-family:'Instrument Sans',sans-serif;outline:none;box-sizing:border-box}
+.sondage-input:focus{border-color:#6AADFF}
+@media (max-width:700px){
+  #sondage > div{padding:24px !important}
+  .sondage-row .sondage-periode{flex:1 1 calc(50% - 6px);min-width:0}
+  .sondage-input{flex:1 1 100%}
+  .sondage-submit{width:100% !important;justify-content:center !important}
+}
+</style>
+
 <!-- METHODE -->
 <section id="methode" style="scroll-margin-top:80px;padding:120px 112px;background:#ffffff;color:#111111">
   <div class="split" style="display:flex;gap:96px;align-items:flex-start">
@@ -1603,16 +1636,30 @@ function initOrbital(canvasId) {
   ];
 
   const startTime = Date.now();
+  let pulse = 0;
+  if (canvasId === 'orbital-canvas') {
+    // Utilise par la fusee du sondage : position actuelle (en px, ecran) d'une planete + pulsation a l'impact
+    window.__orbitalDot = function (i) {
+      const o = orbits[i || 0];
+      const cx = canvas.width * 0.68, cy = canvas.height * 0.42;
+      const base = Math.min(canvas.width * 0.55, canvas.height * 0.90);
+      const rx = base * o.rFactor * 2.0, ry = base * o.rFactor * 0.85;
+      const angle = ((Date.now() - startTime) / o.dur) * Math.PI * 2 + o.start;
+      return { x: cx + Math.cos(angle) * rx, y: cy + Math.sin(angle) * ry };
+    };
+    window.__orbitalPulse = function () { pulse = 1; };
+  }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (pulse > 0) pulse = Math.max(0, pulse - 0.018);
     // Centre en haut à droite — là où le regard arrive en premier
     const cx = canvas.width * 0.68;
     const cy = canvas.height * 0.42;
     const base = Math.min(canvas.width * 0.55, canvas.height * 0.90);
     const elapsed = Date.now() - startTime;
 
-    orbits.forEach(o => {
+    orbits.forEach((o, oi) => {
       const rx = base * o.rFactor * 2.0; // ellipse large
       const ry = base * o.rFactor * 0.85;
       const angle = (elapsed / o.dur) * Math.PI * 2 + o.start;
@@ -1630,20 +1677,21 @@ function initOrbital(canvasId) {
       // Point en orbite
       const px = cx + Math.cos(angle) * rx;
       const py = cy + Math.sin(angle) * ry;
+      const sz = o.size * (1 + (oi === 0 ? pulse * 1.4 : 0));
 
       // Grand halo diffus
-      const g1 = ctx.createRadialGradient(px, py, 0, px, py, o.size * 7);
+      const g1 = ctx.createRadialGradient(px, py, 0, px, py, sz * 7);
       g1.addColorStop(0,   `rgba(${o.r},${o.g},${o.b},${o.alpha * 0.55})`);
       g1.addColorStop(0.35,`rgba(${o.r},${o.g},${o.b},${o.alpha * 0.18})`);
       g1.addColorStop(1,   `rgba(${o.r},${o.g},${o.b},0)`);
       ctx.beginPath();
-      ctx.arc(px, py, o.size * 7, 0, Math.PI * 2);
+      ctx.arc(px, py, sz * 7, 0, Math.PI * 2);
       ctx.fillStyle = g1;
       ctx.fill();
 
       // Cœur lumineux
       ctx.beginPath();
-      ctx.arc(px, py, o.size, 0, Math.PI * 2);
+      ctx.arc(px, py, sz, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(${o.r},${o.g},${o.b},${o.alpha})`;
       ctx.fill();
     });
@@ -1796,6 +1844,162 @@ fitHeroFlow();
       status.textContent='L\u2019envoi a échoué. Écrivez-moi directement à nuvogestion22@gmail.com ou appelez le 06 25 46 82 72.';
     }
     btn.disabled=false; btn.textContent=label;
+  });
+})();
+</script>
+<script>
+// Sondage heures/factures : chaque reponse part vers un webhook n8n (si renseigne), sinon par e-mail via FormSubmit.
+// Apres l'envoi, la carte se contracte dans une fusee qui file vers la planete blanche de l'orbite.
+(function(){
+  var SONDAGE_WEBHOOK='https://n8n.srv1975624.hstgr.cloud/webhook/sondage-nuvo'; // webhook n8n (production) ; vide = envoi par e-mail via FormSubmit
+  var FORMSUBMIT='https://formsubmit.co/ajax/nuvogestion22@gmail.com';
+  var CLE='nuvoSondageFactures';
+  var form=document.getElementById('sondage-form'); if(!form) return;
+  var section=document.getElementById('sondage');
+  var carte=document.getElementById('sondage-card');
+  var status=document.getElementById('sondage-status');
+  var input=document.getElementById('sondage-heures');
+  var btns=Array.prototype.slice.call(document.querySelectorAll('.sondage-periode'));
+  var periode='';
+
+  function masquerDirect(){ if(section) section.style.display='none'; }
+  try{ if(localStorage.getItem(CLE)){ masquerDirect(); return; } }catch(e){}
+
+  function reduireMouvement(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+
+  function replierSection(){
+    section.style.maxHeight=section.scrollHeight+'px';
+    section.offsetHeight; // force le recalcul avant la transition
+    requestAnimationFrame(function(){ section.style.maxHeight='0px'; section.style.paddingBottom='0px'; });
+    setTimeout(masquerDirect,800);
+  }
+
+  function dessinerFusee(rc,flicker){
+    rc.clearRect(0,0,70,100);
+    var bg=rc.createLinearGradient(0,20,70,80); bg.addColorStop(0,'#E8E8E8'); bg.addColorStop(1,'#AAAAAA');
+    rc.beginPath(); rc.ellipse(35,50,16,30,0,0,Math.PI*2); rc.fillStyle=bg; rc.fill();
+    rc.beginPath(); rc.moveTo(19,36); rc.lineTo(35,6); rc.lineTo(51,36); rc.fillStyle='#6AADFF'; rc.fill();
+    rc.beginPath(); rc.arc(35,44,8,0,Math.PI*2); rc.fillStyle='#1A4FBF'; rc.fill();
+    rc.beginPath(); rc.arc(32,41,3,0,Math.PI*2); rc.fillStyle='rgba(255,255,255,0.6)'; rc.fill();
+    rc.beginPath(); rc.moveTo(19,66); rc.lineTo(4,88); rc.lineTo(20,74); rc.fillStyle='#1E4DC8'; rc.fill();
+    rc.beginPath(); rc.moveTo(51,66); rc.lineTo(66,88); rc.lineTo(50,74); rc.fillStyle='#1E4DC8'; rc.fill();
+    var fg=rc.createLinearGradient(35,80,35,80+36*flicker);
+    fg.addColorStop(0,'#FFD700'); fg.addColorStop(0.5,'#FF6B35'); fg.addColorStop(1,'rgba(255,50,0,0)');
+    rc.beginPath(); rc.moveTo(22,80); rc.lineTo(35,80+36*flicker); rc.lineTo(48,80); rc.fillStyle=fg; rc.fill();
+  }
+
+  function cible(){
+    try{ if(window.__orbitalDot) return window.__orbitalDot(0); }catch(e){}
+    return { x:window.innerWidth*0.68, y:window.innerHeight*0.42 };
+  }
+
+  function flashImpact(x,y){
+    var f=document.createElement('div');
+    f.style.cssText='position:fixed;left:'+(x-70)+'px;top:'+(y-70)+'px;width:140px;height:140px;border-radius:50%;pointer-events:none;z-index:1000;'
+      +'background:radial-gradient(circle,rgba(255,255,255,0.9) 0%,rgba(106,173,255,0.45) 40%,rgba(106,173,255,0) 70%);'
+      +'opacity:1;transform:scale(0.3);transition:transform 0.7s ease-out,opacity 0.7s ease-out';
+    document.body.appendChild(f);
+    f.offsetWidth;
+    requestAnimationFrame(function(){ f.style.transform='scale(2.2)'; f.style.opacity='0'; });
+    setTimeout(function(){ f.remove(); },850);
+    try{ if(window.__orbitalPulse) window.__orbitalPulse(); }catch(e){}
+  }
+
+  // La carte se contracte dans la fusee, puis la fusee file vers la planete blanche
+  function lancerFusee(){
+    if(reduireMouvement()){ replierSection(); return; }
+    var r=carte.getBoundingClientRect();
+    var sx=r.left+r.width/2, sy=r.top+r.height/2;
+
+    var rocket=document.createElement('canvas'); rocket.width=70; rocket.height=100;
+    rocket.style.cssText='position:fixed;pointer-events:none;z-index:1000;opacity:0;transform-origin:center center;left:'+(sx-35)+'px;top:'+(sy-50)+'px';
+    document.body.appendChild(rocket);
+    var rc=rocket.getContext('2d');
+
+    var T1=650, T2=1500;           // contraction, puis vol (ms)
+    var t0=Date.now(), replie=false, cap=null;
+    function easeIn(t){ return t*t; }
+
+    function frame(){
+      var el=Date.now()-t0;
+      var flicker=0.85+0.15*Math.sin(el*0.03);
+      var c=cible();
+
+      if(el<T1){
+        // Phase 1 : la carte se reduit, la fusee apparait au centre
+        var a=el/T1, e=easeIn(a);
+        carte.style.transform='scale('+(1-0.94*e).toFixed(3)+')';
+        carte.style.opacity=String(Math.max(0,1-e*1.15).toFixed(3));
+        rocket.style.opacity=String(Math.min(1,a*2.2).toFixed(3));
+        cap=Math.atan2(c.y-sy,c.x-sx);
+        rocket.style.transform='rotate('+(cap+Math.PI/2)+'rad) scale('+(0.3+0.7*a).toFixed(3)+')';
+        dessinerFusee(rc,flicker);
+        requestAnimationFrame(frame);
+        return;
+      }
+
+      if(!replie){ replie=true; carte.style.visibility='hidden'; replierSection(); }
+
+      // Phase 2 : decollage vers la planete (la cible est recalculee a chaque image, la planete bouge)
+      var t=Math.min((el-T1)/T2,1), e2=t*t;
+      var x=sx+(c.x-sx)*e2, y=sy+(c.y-sy)*e2;
+      var dx=c.x-x, dy=c.y-y;
+      if(Math.sqrt(dx*dx+dy*dy)>3) cap=Math.atan2(dy,dx);
+      rocket.style.left=(x-35)+'px'; rocket.style.top=(y-50)+'px';
+      rocket.style.transform='rotate('+(cap+Math.PI/2)+'rad)';
+      dessinerFusee(rc,flicker*(1+0.35*t));
+
+      if(t<1){ requestAnimationFrame(frame); }
+      else { rocket.remove(); flashImpact(c.x,c.y); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  btns.forEach(function(b){
+    b.addEventListener('click',function(){
+      periode=b.getAttribute('data-periode');
+      btns.forEach(function(x){ var on=(x===b); x.classList.toggle('selected',on); x.setAttribute('aria-pressed',on?'true':'false'); });
+      status.textContent='';
+    });
+  });
+
+  var envoiEnCours=false;
+  form.addEventListener('submit',async function(e){
+    e.preventDefault();
+    if(envoiEnCours) return;
+    if(form.elements['_honey'] && form.elements['_honey'].value) return;
+    var heures=parseFloat(String(input.value).trim().replace(',','.'));
+    var max=periode==='semaine'?80:300;
+    status.style.color='#FF8A80';
+    if(!periode){ status.textContent='Choisissez d\u2019abord \u00ab par semaine \u00bb ou \u00ab par mois \u00bb.'; return; }
+    if(!isFinite(heures)||heures<0||heures>max){ status.textContent='Indiquez un nombre d\u2019heures valide (par exemple 3 ou 2,5).'; return; }
+    var parMois=periode==='semaine'?heures*4.33:heures;
+    var data={ date:new Date().toISOString(), periode:periode, heures:heures, heures_par_mois:Math.round(parMois*10)/10 };
+    var btn=form.querySelector('button[type="submit"]');
+    envoiEnCours=true; btn.disabled=true; btn.classList.add('shaking'); status.textContent='';
+    var pause=new Promise(function(res){ setTimeout(res,500); });
+    try{
+      if(SONDAGE_WEBHOOK){
+        var r=await fetch(SONDAGE_WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        if(!r.ok) throw new Error('webhook refuse');
+      } else {
+        data._subject='Sondage factures : '+heures+' h par '+periode;
+        data._template='table';
+        var r2=await fetch(FORMSUBMIT,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});
+        var j=await r2.json();
+        if(!(r2.ok && (j.success===true||j.success==='true'))) throw new Error('envoi refuse');
+      }
+      await pause;
+      btn.classList.remove('shaking');
+      try{ localStorage.setItem(CLE,'1'); }catch(e){}
+      lancerFusee();
+    }catch(err){
+      await pause;
+      btn.classList.remove('shaking');
+      status.style.color='#FF8A80';
+      status.textContent='L\u2019envoi a \u00e9chou\u00e9, vous pouvez r\u00e9essayer dans un instant.';
+      btn.disabled=false; envoiEnCours=false;
+    }
   });
 })();
 </script>
